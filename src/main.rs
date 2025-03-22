@@ -1,41 +1,81 @@
 fn calculate(term: &str) -> i64 {
-    let posschars = vec!['+', '/', '*', '-'];
-    let mut lastwasminus = false;
-    let possnums = vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-    let mut momnum = 0;
-    let mut nums = Vec::new();
-    let mut signs = Vec::new();
-    for (_i, c) in term.chars().enumerate() {
-        if posschars.contains(&c) {
-            signs.push(c);
-            nums.push(momnum);
-            momnum = 0;
-        } else if possnums.contains(&c.to_string().as_str()) {
-            if lastwasminus {
-                momnum = -(c.to_digit(10).unwrap() as i64);
-                lastwasminus = false;
-            } else {
-                momnum = momnum * 10;
-                momnum = momnum + c.to_digit(10).unwrap() as i64;
+    let mut num_stack = Vec::new(); 
+    let mut op_stack = Vec::new();  
+    let mut num = 0;
+    let mut last_was_digit = false;
+
+    let term = term.chars().collect::<Vec<_>>(); 
+    let mut i = 0;
+
+    while i < term.len() {
+        let c = term[i];
+
+        if c.is_digit(10) {
+            num = num * 10 + c.to_digit(10).unwrap() as i64;
+            last_was_digit = true;
+        } else if c == '(' {
+            op_stack.push(c);
+        } else if c == ')' {
+            while *op_stack.last().unwrap() != '(' {
+                let op = op_stack.pop().unwrap();
+                let b = num_stack.pop().unwrap();
+                num = apply_operator(op, b, num);
             }
-        }
-    }
-    nums.push(momnum);
+            op_stack.pop();
+        } else if c == '+' || c == '-' || c == '*' || c == '/' {
+            if last_was_digit {
+                num_stack.push(num);
+                num = 0;
+            }
 
-    let mut result = nums[0];
-    for i in 1..nums.len() {
-        match signs[i - 1] {
-            '+' => result += nums[i],
-            '-' => result -= nums[i],
-            '*' => result *= nums[i],
-            '/' => result /= nums[i],
-            _ => {}
+            while !op_stack.is_empty() && precedence(*op_stack.last().unwrap()) >= precedence(c) {
+                let op = op_stack.pop().unwrap();
+                let b = num_stack.pop().unwrap();
+                num = apply_operator(op, b, num);
+            }
+
+            op_stack.push(c);
+            last_was_digit = false;
         }
+
+        i += 1;
     }
 
-    result
+    if last_was_digit {
+        num_stack.push(num);
+    }
+
+    while !op_stack.is_empty() {
+        let op = op_stack.pop().unwrap();
+        let b = num_stack.pop().unwrap();
+        num = apply_operator(op, b, num);
+    }
+
+    num
+}
+
+fn precedence(op: char) -> i32 {
+    match op {
+        '+' | '-' => 1,
+        '*' | '/' => 2,
+        _ => 0,
+    }
+}
+
+fn apply_operator(op: char, a: i64, b: i64) -> i64 {
+    match op {
+        '+' => a + b,
+        '-' => a - b,
+        '*' => a * b,
+        '/' => a / b,
+        _ => 0,
+    }
 }
 
 fn main() {
     println!("{}", calculate("1+1-2"));
+    println!("{}", calculate("2+3*2"));
+    println!("{}", calculate("(2+3)*2")); 
+    println!("{}", calculate("2*(3+5)")); 
+    println!("{}", calculate("10/(2+3)"));
 }
